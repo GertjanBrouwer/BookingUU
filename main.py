@@ -2,6 +2,7 @@ import pyotp
 import time
 import datetime
 import json
+import requests
 
 from selenium import webdriver
 from selenium.webdriver.support.wait import WebDriverWait
@@ -28,7 +29,9 @@ def chekckin_uu(code) :
         driver.find_element(By.ID, "s-lc-checkin-button").click()
     except:
         print("checkin failed")
+        return -1
     driver.quit()
+    return 1
 
 
 def get_checkin_code_from_mail():
@@ -204,7 +207,7 @@ def makeBooking(presses) :
         booking_date = datetime.datetime.now() + datetime.timedelta(days=presses)
         data.append({
             "date": booking_date.strftime("%d-%m-%Y"),
-            "checkin-code": code,
+            "checkin_code": code,
             "checked_in": "false"
         })
         bookings_file.seek(0)
@@ -218,15 +221,39 @@ def makeBooking(presses) :
 # check if booked for today, tommorow and day after tommorow
 # if not, make booking
 # for any existing bookings check if we can check in already
+print("cleaning bookings")
 clean_bookings_file()
+print("done cleaning bookings")
 
 candidates = [] # datetime format
-if (datetime.datetime.now().weekday() <= 3):
+
+if (datetime.datetime.now().weekday() <= 3): # monday - thursday
     candidates.append(datetime.datetime.now() + datetime.timedelta(days=2))
-if (datetime.datetime.now().weekday() <= 4):
     candidates.append(datetime.datetime.now() + datetime.timedelta(days=1))
-if (datetime.datetime.now().weekday() <= 5):
     candidates.append(datetime.datetime.now())
+elif (datetime.datetime.now().weekday() == 4): # friday
+    candidates.append(datetime.datetime.now() + datetime.timedelta(days=1))
+    candidates.append(datetime.datetime.now())
+elif (datetime.datetime.now().weekday() == 5): # saturday
+    candidates.append(datetime.datetime.now() + datetime.timedelta(days=2))
+    candidates.append(datetime.datetime.now())
+elif (datetime.datetime.now().weekday() == 0): # sunday
+    print("sunday")
+print("Number of candidates: " + str(len(candidates)))
+
+print("Checking for internet")
+
+elapsed_time = 0
+while(elapsed_time < 120): # wait for internet connection for at most two minutes (actually four considering timeout)
+    try:
+        requests.get("https://bookings.uu.nl/seat/97376", timeout=5)
+        break
+    except:
+        print("No internet connection, sleeping for 5 and retrying")
+        elapsed_time += 5
+        time.sleep(5)
+print("Connection found")
+
 
 for candidate in candidates:
     candidate_string = candidate.strftime("%d-%m-%Y")
@@ -243,7 +270,6 @@ for candidate in candidates:
             print(candidate)
             print(datetime.datetime.now())
             presses = (candidate - datetime.datetime.now()).days + 1
-            print("presses: " + str(presses))
             if (makeBooking(presses) != 1):
                 print("FAILED to make booking for " + candidate_string)
                 continue
@@ -255,8 +281,13 @@ with open('bookings.json', 'r+') as bookings_file:
         if (booking["checked_in"] == "false"):
             if (booking["date"] == datetime.datetime.now().strftime("%d-%m-%Y")):
                 if (datetime.datetime.now().hour >= 9):
-                    chekckin_uu(booking["checkin-code"])
-                    booking["checked_in"] = "true"
+                    if (chekckin_uu(booking["checkin_code"]) == -1):
+                        #remove booking
+                        data.remove(booking)
+                    else:
+                        booking["checked_in"] = "true"
+
                     bookings_file.truncate(0)
                     bookings_file.seek(0)
                     bookings_file.write(json.dumps(data, indent=4))
+                    print("checked in for " + booking["date"])
