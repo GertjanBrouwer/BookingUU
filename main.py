@@ -35,7 +35,8 @@ def chekckin_uu(code) :
 
 
 def get_checkin_code_from_mail():
-    driver = webdriver.Firefox(options=headOption)
+    #driver = webdriver.Firefox(options=headOption)
+    driver = webdriver.Firefox()
     driver.get("https://outlook.office.com/mail/")
 
     # Login required each time, since we use a clean browser
@@ -98,16 +99,17 @@ def get_checkin_code_from_mail():
         return
 
     try:
+        print("waiting for checkin code")
         element = WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.XPATH, '//b[starts-with(text(), "Use the following code to check in:")]'))
+            EC.presence_of_element_located((By.XPATH, '//b[starts-with(text(), "Use the following code to check in")]/following-sibling::strong'))
+            #EC.presence_of_element_located(By.XPATH('//b[starts-with(text(), "Use the following code to check in")]/following-sibling::strong'))
         )
-
-        contains_code = element.text.split(": ")[1]
-        code = contains_code.split("\n")[0]
         driver.quit()
-        return code
-    except:
-        print("no booking confirmation mail found")
+        return element.text
+    except Exception as e:
+        print("Start exception")
+        print(e)
+        print("No checkin code found in mail")
         driver.quit()
         return
     
@@ -215,7 +217,6 @@ def makeBooking(presses) :
     print("booking is submitted and stored")
     driver.quit()
     return 1
-
 
 # cron job monday through saturday
 # check if booked for today, tommorow and day after tommorow
