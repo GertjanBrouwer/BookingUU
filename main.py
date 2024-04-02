@@ -35,8 +35,8 @@ def chekckin_uu(code) :
 
 
 def get_checkin_code_from_mail():
-    #driver = webdriver.Firefox(options=headOption)
-    driver = webdriver.Firefox()
+    driver = webdriver.Firefox(options=headOption)
+    # driver = webdriver.Firefox()
     driver.get("https://outlook.office.com/mail/")
 
     # Login required each time, since we use a clean browser
@@ -100,12 +100,14 @@ def get_checkin_code_from_mail():
 
     try:
         print("waiting for checkin code")
-        element = WebDriverWait(driver, 10).until(
+        element = WebDriverWait(driver, 100).until(
             EC.presence_of_element_located((By.XPATH, '//b[starts-with(text(), "Use the following code to check in")]/following-sibling::strong'))
             #EC.presence_of_element_located(By.XPATH('//b[starts-with(text(), "Use the following code to check in")]/following-sibling::strong'))
         )
+        checkin_code = element.text
         driver.quit()
-        return element.text
+        print("checkin code found: " + checkin_code)
+        return checkin_code 
     except Exception as e:
         print("Start exception")
         print(e)
@@ -138,7 +140,7 @@ def makeBooking(presses) :
 
     # Login required each time, since we use a clean browser
     try :
-        element = WebDriverWait(driver, 10).until(
+        element = WebDriverWait(driver, 50).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "#Ecom_User_ID"))
         )
     finally: 
@@ -152,7 +154,7 @@ def makeBooking(presses) :
             driver.find_element(By.ID, "loginButton2").click()
 
     try :
-        element = WebDriverWait(driver, 10).until(
+        element = WebDriverWait(driver, 50).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, ".fc-next-button"))
         )
     finally: 
@@ -281,7 +283,20 @@ with open('bookings.json', 'r+') as bookings_file:
     for booking in data:
         if (booking["checked_in"] == "false"):
             if (booking["date"] == datetime.datetime.now().strftime("%d-%m-%Y")):
-                if (datetime.datetime.now().hour >= 9):
+                # check if day is saturday
+                if (datetime.datetime.now().weekday() == 5):
+                    if (datetime.datetime.now().hour >= 10):
+                        if (chekckin_uu(booking["checkin_code"]) == -1):
+                            #remove booking
+                            data.remove(booking)
+                        else:
+                            booking["checked_in"] = "true"
+
+                        bookings_file.truncate(0)
+                        bookings_file.seek(0)
+                        bookings_file.write(json.dumps(data, indent=4))
+                        print("checked in for " + booking["date"])
+                elif (datetime.datetime.now().hour >= 9):
                     if (chekckin_uu(booking["checkin_code"]) == -1):
                         #remove booking
                         data.remove(booking)
