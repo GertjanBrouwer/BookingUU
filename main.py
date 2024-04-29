@@ -206,16 +206,19 @@ def makeBooking(presses) :
     code = get_checkin_code_from_mail()
 
     # open json file and write booking to it
-    with open('bookings.json', 'r+') as bookings_file:
-        data = json.load(bookings_file)
-        booking_date = datetime.datetime.now() + datetime.timedelta(days=presses)
-        data.append({
-            "date": booking_date.strftime("%d-%m-%Y"),
-            "checkin_code": code,
-            "checked_in": "false"
-        })
-        bookings_file.seek(0)
-        bookings_file.write(json.dumps(data, indent=4))
+    try:
+        with open('bookings.json', 'r+') as bookings_file:
+            data = json.load(bookings_file)
+            booking_date = datetime.datetime.now() + datetime.timedelta(days=presses)
+            data.append({
+                "date": booking_date.strftime("%d-%m-%Y"),
+                "checkin_code": code,
+                "checked_in": "false"
+            })
+            bookings_file.seek(0)
+            bookings_file.write(json.dumps(data, indent=4))
+    except Exception as e:
+        print("Error occurred while writing to bookings.json:", e)
     print("booking is submitted and stored")
     driver.quit()
     return 1
